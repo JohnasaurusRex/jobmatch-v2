@@ -3,10 +3,11 @@ import { SearchabilityTab } from '../tabs/SearchabilityTab';
 import { HardSkillsTab } from '../tabs/HardSkillsTab';
 import { SoftSkillsTab } from '../tabs/SoftSkillsTab';
 import { RecruiterTipsTab } from '../tabs/RecruiterTipsTab';
+import { StoredAnalysis } from '@/types/analysis';
 
 interface MainContentProps {
     activeTab: string;
-    analysis: any;
+    analysis: StoredAnalysis;
 }
 
 export function MainContent({ activeTab, analysis }: MainContentProps) {

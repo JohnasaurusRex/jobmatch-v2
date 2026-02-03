@@ -1,13 +1,16 @@
-import { Analysis } from '../../domain/entities/Analysis';
+import { Analysis, SearchabilityAnalysis, HardSkillsAnalysis, SoftSkillsAnalysis, RecruiterTipsAnalysis, OverallAnalysis } from '../../domain/entities/Analysis';
 
+/**
+ * DTO for sending analysis data to the client.
+ */
 export class AnalysisResponse {
 	constructor(
 		public readonly id: string,
-		public readonly searchability: any,
-		public readonly hardSkills: any,
-		public readonly softSkills: any,
-		public readonly recruiterTips: any,
-		public readonly overall: any,
+		public readonly searchability: SearchabilityAnalysis,
+		public readonly hardSkills: HardSkillsAnalysis,
+		public readonly softSkills: SoftSkillsAnalysis,
+		public readonly recruiterTips: RecruiterTipsAnalysis,
+		public readonly overall: OverallAnalysis,
 		public readonly createdAt: Date
 	) {}
 

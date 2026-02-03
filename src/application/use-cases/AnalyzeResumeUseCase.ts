@@ -7,7 +7,6 @@ import { JobDescription } from '../../domain/entities/JobDescription';
 import { Job } from '../../domain/entities/Job';
 import { IAnalysisService } from '../../domain/services/IAnalysisService';
 import { IJobStatusService } from '../../domain/services/IJobStatusService';
-import { IAnalysisRepository } from '../../domain/repositories/IAnalysisRepository';
 import { IPdfProcessor } from '../../domain/repositories/IPdfProcessor';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,7 +14,6 @@ export class AnalyzeResumeUseCase implements IUseCase<AnalyzeResumeRequest, JobS
   constructor(
     private readonly analysisService: IAnalysisService,
     private readonly jobStatusService: IJobStatusService,
-    private readonly analysisRepository: IAnalysisRepository,
     private readonly pdfProcessor: IPdfProcessor
   ) {}
 
@@ -44,9 +42,6 @@ export class AnalyzeResumeUseCase implements IUseCase<AnalyzeResumeRequest, JobS
     try {
       const isValidPdf = await this.pdfProcessor.validatePdf(request.resumeFile);
       console.log('Advanced PDF validation result:', isValidPdf);
-      
-      // For now, we'll proceed even if advanced validation fails
-      // This can be made stricter once we confirm the PDF processor works
     } catch (validationError) {
       console.warn('PDF validation warning (proceeding anyway):', validationError);
     }
@@ -95,7 +90,7 @@ export class AnalyzeResumeUseCase implements IUseCase<AnalyzeResumeRequest, JobS
       const hasEOF = fileEnd.includes('%%EOF') || fileEnd.includes('xref');
       console.log('PDF has proper ending:', hasEOF);
 
-      return true; // Return true for basic validation
+      return true;
     } catch (error) {
       console.error('Basic PDF validation error:', error);
       return false;
@@ -139,12 +134,8 @@ export class AnalyzeResumeUseCase implements IUseCase<AnalyzeResumeRequest, JobS
       const analysis = await this.analysisService.analyzeResume(resume, jobDescription);
       console.log('AI analysis completed');
 
-      // Save analysis
-      await this.analysisRepository.save(analysis);
-      console.log('Analysis saved to repository');
-
-      // Update job status
-      job.markAsCompleted(analysis.id);
+      // Update job with analysis result (stored in-memory)
+      job.markAsCompleted(analysis);
       await this.jobStatusService.updateJobStatus(job);
       console.log('Job marked as completed:', job.id.value);
 

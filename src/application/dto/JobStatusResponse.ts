@@ -1,3 +1,8 @@
+import { AnalysisResponse } from './AnalysisResponse';
+
+/**
+ * DTO for job status responses.
+ */
 export class JobStatusResponse {
 	constructor(
 		public readonly jobId: string,
@@ -5,7 +10,7 @@ export class JobStatusResponse {
 		public readonly createdAt: Date,
 		public readonly completedAt?: Date,
 		public readonly errorMessage?: string,
-		public readonly analysis?: any
+		public readonly analysis?: AnalysisResponse
 	) {}
 
 	toJSON() {

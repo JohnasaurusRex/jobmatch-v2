@@ -25,7 +25,7 @@ describe('OpenAIAnalysisService', () => {
       completions: {
         create: jest.fn(),
       },
-    } as any;
+    } as unknown as OpenAI.Chat;
 
     service = new OpenAIAnalysisService();
   });

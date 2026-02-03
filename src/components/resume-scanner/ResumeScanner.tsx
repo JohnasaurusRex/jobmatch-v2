@@ -1,232 +1,276 @@
 'use client';
 
-import React, { useState, FormEvent, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Upload, CheckCircle, AlertCircle, Scan, ArrowRight } from 'lucide-react';
+import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Upload, Check, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAnalysisStore } from '@/store/useAnalysisStore';
 
-interface AnalysisResult {
-  match_percentage?: number;
-  missing_skills?: string[];
-  strengths?: string[];
-  recommendations?: string[];
-  // Add other specific properties your API returns
-}
-
-interface AnalysisStatus {
-  status: 'processing' | 'completed' | 'error';
-  result?: AnalysisResult;
-  error_message?: string;
-}
+const scanSteps = [
+    "Initializing quantum scanner...",
+    "Parsing semantic structure...",
+    "Analyzing keyword density...",
+    "Evaluating competency model...",
+    "Calculating fit probability...",
+    "Generating visualization matrices..."
+];
 
 export function ResumeScanner() {
   const [file, setFile] = useState<File | null>(null);
-  const [jobDescription, setJobDescription] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  const [progress, setProgress] = useState<number>(0);
+  const [jobDescription, setJobDescription] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [scanStep, setScanStep] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const setAnalysis = useAnalysisStore(state => state.setAnalysis);
 
-  const pollAnalysisStatus = async (id: string, attempts = 0): Promise<void> => {
-    const MAX_ATTEMPTS = 30; // 1 minute maximum (2s * 30)
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
 
-    if (attempts >= MAX_ATTEMPTS) {
-      setError('Analysis timed out. Please try again.');
-      setLoading(false);
-      return;
-    }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
 
-    try {
-      const response = await fetch(`/api/status/${id}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: AnalysisStatus = await response.json();
-
-      switch (data.status) {
-        case 'completed':
-          if (data.result) {
-            setLoading(false);
-            try {
-              sessionStorage.setItem('analysisResult', JSON.stringify(data.result));
-              router.push('/dashboard');
-            } catch (err) {
-              console.error('Failed to save to session storage:', err);
-              setError('Failed to save analysis results');
-            }
-          }
-          break;
-        case 'error':
-          throw new Error(data.error_message || 'Analysis failed');
-        case 'processing':
-          setProgress((oldProgress) => Math.min(oldProgress + 5, 90));
-          setTimeout(() => pollAnalysisStatus(id, attempts + 1), 2000);
-          break;
-      }
-    } catch (err) {
-      console.error('Polling error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to connect to server');
-      setLoading(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile?.type === 'application/pdf') {
+        setFile(droppedFile);
+        setError(null);
+    } else {
+        setError('Please upload a valid PDF file.');
     }
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+  const handlePoll = async (jobId: string) => {
+      let attempts = 0;
+      const maxAttempts = 60; // 2 minutes
+
+      const poll = async () => {
+          if (attempts >= maxAttempts) {
+              setError('Analysis timed out.');
+              setIsLoading(false);
+              return;
+          }
+
+          try {
+              const res = await fetch(`/api/status/${jobId}`);
+              if (!res.ok) throw new Error("Status check failed");
+              
+              const data = await res.json();
+              
+              if (data.status === 'completed' && data.result) {
+                  // SUCCESS: Store in Zustand (persisted)
+                  setAnalysis(data.result);
+                  
+                  // Finish animation
+                  setScanStep(scanSteps.length - 1);
+                  await new Promise(r => setTimeout(r, 800));
+                  
+                  router.push('/dashboard');
+              } else if (data.status === 'error') {
+                  throw new Error(data.error_message || 'Analysis failed');
+              } else {
+                  // Still processing
+                  attempts++;
+                  // Update scan message purely for visual effect if strict sync isn't needed
+                  setScanStep(prev => (prev < scanSteps.length - 2 ? prev + 1 : prev));
+                  setTimeout(poll, 2000);
+              }
+          } catch (err) {
+              console.error(err);
+              setError(err instanceof Error ? err.message : "Polling error");
+              setIsLoading(false);
+          }
+      };
+
+      poll();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!file || !jobDescription) {
-      setError('Please provide both resume and job description');
-      return;
+        setError("Please provide both a resume and job description.");
+        return;
     }
-    
-    setLoading(true);
-    setError('');
-    setProgress(10);
-    
+
+    setIsLoading(true);
+    setScanStep(0);
+    setError(null);
+
     const formData = new FormData();
     formData.append('resume', file);
     formData.append('jobDescription', jobDescription);
 
     try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
+        const res = await fetch('/api/analyze', {
+            method: 'POST',
+            body: formData
+        });
 
-      const data = await response.json();
-      
-      if (data.job_id) {
-        setProgress(30);
-        pollAnalysisStatus(data.job_id);
-      } else {
-        throw new Error('No job ID received from server');
-      }
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Upload failed");
+        }
+
+        const data = await res.json();
+        if (data.job_id) {
+            handlePoll(data.job_id);
+        } else {
+            throw new Error("No Job ID returned");
+        }
     } catch (err) {
-      console.error('Submission error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to connect to server');
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      setLoading(false);
-      setProgress(0);
-    };
-  }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile?.type === 'application/pdf') {
-      setFile(selectedFile);
-      setError('');
-    } else {
-      setError('Please upload a PDF file');
-      setFile(null);
+        console.error(err);
+        setError(err instanceof Error ? err.message : "An unexpected error occurred");
+        setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <Card className="w-full max-w-2xl shadow-lg">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">JobMatch Analyzer</CardTitle>
-          <CardDescription className="text-center">
-            Upload your resume and paste the job description to get personalized insights
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="resume-upload">Upload Resume (PDF)</Label>
-              <div className="flex items-center space-x-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('resume-upload')?.click()}
-                        className="w-full"
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Choose File
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Upload a PDF version of your resume</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <input
-                id="resume-upload"
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              {file && (
-                <div className="flex items-center gap-2 text-green-600">
-                  <Check className="h-4 w-4" /> {file.name}
+    <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+      
+      {/* Header Section */}
+      <div className="text-center space-y-4 mb-12">
+        <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 text-transparent bg-clip-text drop-shadow-sm p-2">
+            AI Resume Analyzer
+        </h1>
+        <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto">
+            Optimize your ATS score with our deep-learning matching engine.
+        </p>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <motion.div
+            key="scanner"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.5 }}
+          >
+              <GlassCard className="flex flex-col items-center justify-center py-24 text-center border-cyan-500/30 relative overflow-hidden bg-slate-900/80">
+                 {/* Scanning Line Animation */}
+                 <motion.div 
+                    className="absolute top-0 left-0 w-full h-1 bg-cyan-400/50 shadow-[0_0_20px_rgba(6,182,212,0.8)] z-20"
+                    animate={{ top: ["0%", "100%", "0%"] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                 />
+                 
+                 <div className="relative z-10 flex flex-col items-center">
+                    <div className="mb-8 relative">
+                        <Scan className="w-24 h-24 text-cyan-400 animate-pulse" />
+                        <div className="absolute inset-0 bg-cyan-500/20 blur-2xl rounded-full animate-ping" />
+                    </div>
+                    <h3 className="text-3xl font-bold text-white mb-2 tracking-tight">Analyzing Profile</h3>
+                    <p className="text-cyan-400/80 font-mono text-lg mb-8 min-h-[1.75rem]">{scanSteps[scanStep]}</p>
+                    
+                    <div className="w-64 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                        <motion.div 
+                            className="h-full bg-gradient-to-r from-cyan-500 to-blue-600"
+                            animate={{ width: ["0%", "100%"] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                        />
+                    </div>
+                 </div>
+              </GlassCard>
+          </motion.div>
+        ) : (
+          <motion.form 
+            key="form"
+            onSubmit={handleSubmit} 
+            className="space-y-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* Upload Area */}
+            <GlassCard 
+                className={`p-10 border-2 border-dashed transition-all duration-300 group cursor-pointer
+                    ${isDragOver ? 'border-cyan-400/70 bg-cyan-400/5' : 'border-white/10 hover:border-white/20 hover:bg-white/5'}
+                `}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if(f) {
+                            if(f.type === 'application/pdf') { setFile(f); setError(null); }
+                            else setError('PDF only please');
+                        }
+                    }} 
+                    accept=".pdf" 
+                    className="hidden" 
+                />
+                
+                <div className="flex flex-col items-center justify-center text-center space-y-4">
+                    <div className={`p-4 rounded-full transition-all duration-300 ${file ? 'bg-green-500/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
+                        {file ? <CheckCircle className="w-10 h-10 text-green-400" /> : <Upload className="w-10 h-10 text-cyan-400" />}
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-semibold text-white mb-2">
+                            {file ? file.name : "Upload Resume"}
+                        </h3>
+                        <p className="text-slate-400">
+                            {file ? "Ready for analysis" : "Drag & drop your PDF here, or click to browse"}
+                        </p>
+                    </div>
                 </div>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="job-description">Job Description</Label>
-              <Textarea
-                id="job-description"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste job description here..."
-                className="min-h-[200px] max-h-[400px] overflow-y-auto resize-none"
-              />
-            </div>
+            </GlassCard>
+
+            {/* Job Description Area */}
+            <GlassCard className="p-1">
+                <textarea
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    placeholder="Paste the job description here (Ctrl+V)..."
+                    className="w-full h-48 bg-slate-950/50 text-slate-100 placeholder:text-slate-600 p-6 rounded-xl border-none focus:ring-1 focus:ring-cyan-500/50 resize-none scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent transition-all"
+                />
+            </GlassCard>
+
+            {/* Error Message */}
             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+                <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200"
+                >
+                    <AlertCircle className="w-5 h-5 text-red-400" />
+                    {error}
+                </motion.div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                'Analyze Resume'
-              )}
+
+            {/* Action Button */}
+            <Button 
+                type="submit" 
+                size="lg"
+                disabled={!file || !jobDescription}
+                className={`
+                    w-full h-14 text-lg font-bold tracking-wide transition-all duration-300
+                    ${(!file || !jobDescription) 
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:scale-[1.01] text-white border-none'}
+                `}
+            >
+                <Scan className="w-5 h-5 mr-3" />
+                Start Analysis
+                <ArrowRight className="w-5 h-5 ml-2 opacity-70" />
             </Button>
-            {loading && (
-              <div className="space-y-2">
-                <Progress value={progress} className="w-full" />
-                <p className="text-sm text-center text-muted-foreground">
-                  {progress < 30 
-                    ? "Starting analysis..."
-                    : "Analyzing your resume... This may take a few moments."}
-                </p>
-              </div>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+          </motion.form>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

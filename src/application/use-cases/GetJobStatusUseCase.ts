@@ -1,14 +1,12 @@
 import { IUseCase } from '../interfaces/IUseCase';
 import { JobStatusResponse } from '../dto/JobStatusResponse';
 import { IJobStatusService } from '../../domain/services/IJobStatusService';
-import { IAnalysisRepository } from '../../domain/repositories/IAnalysisRepository';
 import { JobId } from '../../domain/value-objects/JobId';
 import { AnalysisResponse } from '../dto/AnalysisResponse';
 
 export class GetJobStatusUseCase implements IUseCase<string, JobStatusResponse> {
   constructor(
-    private readonly jobStatusService: IJobStatusService,
-    private readonly analysisRepository: IAnalysisRepository
+    private readonly jobStatusService: IJobStatusService
   ) {}
 
   async execute(jobIdValue: string): Promise<JobStatusResponse> {
@@ -21,11 +19,9 @@ export class GetJobStatusUseCase implements IUseCase<string, JobStatusResponse> 
 
     let analysisResult: AnalysisResponse | undefined;
 
-    if (job.isCompleted() && job.analysisId) {
-      const analysis = await this.analysisRepository.findById(job.analysisId);
-      if (analysis) {
-        analysisResult = AnalysisResponse.fromDomain(analysis);
-      }
+    // Get analysis directly from job (stored in-memory)
+    if (job.isCompleted() && job.analysisResult) {
+      analysisResult = AnalysisResponse.fromDomain(job.analysisResult);
     }
 
     return new JobStatusResponse(
