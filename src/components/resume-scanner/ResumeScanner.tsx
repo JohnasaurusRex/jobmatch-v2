@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, CheckCircle, AlertCircle, Scan, ArrowRight } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -28,6 +28,17 @@ export function ResumeScanner() {
   const router = useRouter();
   const setAnalysis = useAnalysisStore(state => state.setAnalysis);
 
+  // Cycle through scan steps during loading
+  useEffect(() => {
+    if (!isLoading) return;
+    
+    const interval = setInterval(() => {
+      setScanStep(prev => (prev < scanSteps.length - 1 ? prev + 1 : 0));
+    }, 2500);
+    
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -50,51 +61,6 @@ export function ResumeScanner() {
     }
   };
 
-  const handlePoll = async (jobId: string) => {
-      let attempts = 0;
-      const maxAttempts = 60; // 2 minutes
-
-      const poll = async () => {
-          if (attempts >= maxAttempts) {
-              setError('Analysis timed out.');
-              setIsLoading(false);
-              return;
-          }
-
-          try {
-              const res = await fetch(`/api/status/${jobId}`);
-              if (!res.ok) throw new Error("Status check failed");
-              
-              const data = await res.json();
-              
-              if (data.status === 'completed' && data.result) {
-                  // SUCCESS: Store in Zustand (persisted)
-                  setAnalysis(data.result);
-                  
-                  // Finish animation
-                  setScanStep(scanSteps.length - 1);
-                  await new Promise(r => setTimeout(r, 800));
-                  
-                  router.push('/dashboard');
-              } else if (data.status === 'error') {
-                  throw new Error(data.error_message || 'Analysis failed');
-              } else {
-                  // Still processing
-                  attempts++;
-                  // Update scan message purely for visual effect if strict sync isn't needed
-                  setScanStep(prev => (prev < scanSteps.length - 2 ? prev + 1 : prev));
-                  setTimeout(poll, 2000);
-              }
-          } catch (err) {
-              console.error(err);
-              setError(err instanceof Error ? err.message : "Polling error");
-              setIsLoading(false);
-          }
-      };
-
-      poll();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !jobDescription) {
@@ -111,6 +77,7 @@ export function ResumeScanner() {
     formData.append('jobDescription', jobDescription);
 
     try {
+        // Synchronous API call - waits for analysis to complete
         const res = await fetch('/api/analyze', {
             method: 'POST',
             body: formData
@@ -118,15 +85,16 @@ export function ResumeScanner() {
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.error || "Upload failed");
+            throw new Error(err.error || "Analysis failed");
         }
 
         const data = await res.json();
-        if (data.job_id) {
-            handlePoll(data.job_id);
-        } else {
-            throw new Error("No Job ID returned");
-        }
+        
+        // SUCCESS: Store in Zustand (persisted to localStorage)
+        setAnalysis(data);
+        
+        // Navigate to dashboard
+        router.push('/dashboard');
     } catch (err) {
         console.error(err);
         setError(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -170,7 +138,8 @@ export function ResumeScanner() {
                         <div className="absolute inset-0 bg-cyan-500/20 blur-2xl rounded-full animate-ping" />
                     </div>
                     <h3 className="text-3xl font-bold text-white mb-2 tracking-tight">Analyzing Profile</h3>
-                    <p className="text-cyan-400/80 font-mono text-lg mb-8 min-h-[1.75rem]">{scanSteps[scanStep]}</p>
+                    <p className="text-cyan-400/80 font-mono text-lg mb-2 min-h-[1.75rem]">{scanSteps[scanStep]}</p>
+                    <p className="text-slate-500 text-sm mb-8">This may take 10-20 seconds...</p>
                     
                     <div className="w-64 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
                         <motion.div 

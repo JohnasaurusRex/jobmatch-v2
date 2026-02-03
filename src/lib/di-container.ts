@@ -1,41 +1,18 @@
 // src/lib/di-container.ts
 import { AnalyzeResumeUseCase } from '../application/use-cases/AnalyzeResumeUseCase';
-import { GetJobStatusUseCase } from '../application/use-cases/GetJobStatusUseCase';
 import { OpenAIAnalysisService } from '../infrastructure/services/OpenAIAnalysisService';
-import { InMemoryJobRepository } from '../infrastructure/repositories/InMemoryJobRepository';
-import { LocalJobStatusService } from '../infrastructure/services/LocalJobStatusService';
 import { PdfProcessor } from '../infrastructure/repositories/PdfProcessor';
-
-// Repositories (in-memory for ephemeral job tracking)
-const jobRepository = new InMemoryJobRepository();
-const pdfProcessor = new PdfProcessor();
 
 // Services
 const analysisService = new OpenAIAnalysisService();
-const jobStatusService = new LocalJobStatusService(jobRepository);
+const pdfProcessor = new PdfProcessor();
 
-// Use Cases (no longer depend on analysis repository)
+// Use Cases (simplified - no job tracking needed for synchronous API)
 export const createAnalyzeResumeUseCase = (): AnalyzeResumeUseCase => 
-  new AnalyzeResumeUseCase(analysisService, jobStatusService, pdfProcessor);
+  new AnalyzeResumeUseCase(analysisService, pdfProcessor);
 
-export const createGetJobStatusUseCase = (): GetJobStatusUseCase => 
-  new GetJobStatusUseCase(jobStatusService);
-
-// Direct instances
+// Direct instance
 export const analyzeResumeUseCase = createAnalyzeResumeUseCase();
-export const getJobStatusUseCase = createGetJobStatusUseCase();
-
-// Utility for testing
-export const testPdfProcessing = async (file: Buffer): Promise<string> => {
-  try {
-    const result = await pdfProcessor.extractText(file);
-    console.log('PDF processing test successful');
-    return result;
-  } catch (error) {
-    console.error('PDF processing test failed:', error);
-    throw error;
-  }
-};
 
 // Cleanup utility
 export const cleanupFiles = async (): Promise<void> => {
