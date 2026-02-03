@@ -1,0 +1,23 @@
+FAIL src/infrastructure/services/OpenAIAnalysisService.test.ts
+  OpenAIAnalysisService
+    × should analyze resume and return Analysis entity (9 ms)
+
+  ● OpenAIAnalysisService › should analyze resume and return Analysis entity
+
+    TypeError: Cannot read properties of undefined (reading 'totalScore')
+
+    [0m [90m 86 |[39m
+     [90m 87 |[39m     expect(result)[33m.[39mtoBeInstanceOf([33mAnalysis[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 88 |[39m     expect(result[33m.[39moverallAnalysis[33m.[39mtotalScore[33m.[39mvalue)[33m.[39mtoBe([35m88[39m)[33m;[39m
+     [90m    |[39m                                   [31m[1m^[22m[39m
+     [90m 89 |[39m     expect(mockOpenAI[33m.[39mchat[33m.[39mcompletions[33m.[39mcreate)[33m.[39mtoHaveBeenCalledTimes([35m1[39m)[33m;[39m
+     [90m 90 |[39m     expect(mockOpenAI[33m.[39mchat[33m.[39mcompletions[33m.[39mcreate)[33m.[39mtoHaveBeenCalledWith(
+     [90m 91 |[39m         expect[33m.[39mobjectContaining({[0m
+
+      at Object.totalScore (src/infrastructure/services/OpenAIAnalysisService.test.ts:88:35)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        1.581 s
+Ran all test suites matching src/infrastructure/services/OpenAIAnalysisService.test.ts.

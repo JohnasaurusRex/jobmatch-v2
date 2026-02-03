@@ -1,0 +1,112 @@
+
+
+CHRIS JOHN REX PAJAL 
+CONTACTS 
+FULL STACK DEVELOPER 
+ 
+GITHUB github.com/JohnasaurusRex 
+PHONE NUMBER (+63) 927-467-0299 
+EMAIL cjcanoy45@gmail.com 
+LINKEDIN www.linkedin.com/in/chris-john-rex-pajal/ 
+ 
+Summary 
+Highly motivated and 
+results-oriented 
+Computer Science 
+graduate with a strong 
+interest in web 
+development, 
+cybersecurity, and 
+database security. 
+Seeking an opportunity 
+in these fields to 
+leverage my skills and 
+experience in backend 
+development and 
+machine learning. 
+ 
+Skills 
+ 
+Image Processing 
+Python 
+TensorFlow 
+NumPy 
+Matplotlib 
+Keras 
+ 
+Frontend 
+JavaScript  
+TypeScript  
+Tailwind CSS  
+Vue JS  
+React JS 
+Next JS 
+ 
+Backend 
+Node JS 
+FastAPI  
+Flask  
+MySQL  
+PostgreSQL  
+Vercel serverless  
+Xampp 
+ 
+Tools & Libraries  
+AWS 
+Bash / Shell Scripting 
+Digital Ocean 
+Git / GitHub  
+Figma 
+Frappe / ERPNext  
+Notion  
+Vercel  
+VSCode 
+Work Experience 
+ 
+Full Stack Developer Jan 2025 – June 2025 
+ 
+Designed advanced AI agents to analyze and summarize crypto market 
+data for strategic insights, and developed six high-availability React web 
+systems with robust emergency protocols. Engineered AWS and Digital 
+Ocean to deployed web servers, and developed custom Discord bots to 
+streamline communications and enhance global collaboration. 
+  
+Junior Web Developer - Intern Jun 2024 - Nov 2024 
+Wela School Systems | Cagayan De Oro 
+  
+Enhanced the school forms of a school management system using 
+Frappe framework for efficient operations. Created efficient Frappe web 
+pages with Python, enhancing functionality and user experience of the 
+system. 
+  
+Projects 
+ 
+Abaca Fiber Grade Image Classification using Supervised and 
+Unsupervised Machine Learning 
+Link 
+Developed a classifier model to predict abaca fiber grade using VGGNet 
+CNN architecture for supervised learning and K-means Clustering with 
+Grid Search and Random Forest Classifier for unsupervised learning 
+model. Achieved 91% accuracy with supervised learning (VGGNet CNN) 
+and 97% accuracy with an unsupervised model (K-Means clustering - 
+Random Forest Classifier). 
+ 
+JobMatch Analyzer 
+GitHub | Link  
+Developed a resume analyzer web application using React JS with Flask 
+to evaluate resume of users’ compatibility with the specific job 
+description. It uses Google Gemini AI API to use Natural Language 
+Processing (NLP) to generate tailored insights to enhance their chances 
+of securing employment. 
+ 
+ 
+Certificates 
+Google Cybersecurity Specialization  
+Google 
+ 
+Education 
+Visayas State University (VSU) – Main Campus  
+BS in Computer Science S.Y 2024 - 2025 
+ 
+
+ 
