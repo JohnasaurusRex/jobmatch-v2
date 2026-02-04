@@ -1,8 +1,5 @@
 // src/infrastructure/repositories/PdfProcessor.ts
 import { IPdfProcessor } from '../../domain/repositories/IPdfProcessor';
-import { promises as fs } from 'fs';
-import path from 'path';
-import os from 'os';
 
 export class PdfProcessor implements IPdfProcessor {
   

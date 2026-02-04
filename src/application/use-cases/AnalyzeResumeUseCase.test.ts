@@ -4,9 +4,8 @@ import { IJobRepository } from '../../domain/repositories/IJobRepository';
 import { IPdfProcessor } from '../../domain/repositories/IPdfProcessor';
 import { AnalyzeResumeRequest } from '../dto/AnalyzeResumeRequest';
 import { JobStatusResponse } from '../dto/JobStatusResponse';
-import { Job, JobStatus } from '../../domain/entities/Job';
+import { JobStatus } from '../../domain/entities/Job';
 import { Analysis } from '../../domain/entities/Analysis';
-import { JobId } from '../../domain/value-objects/JobId';
 
 describe('AnalyzeResumeUseCase', () => {
     let useCase: AnalyzeResumeUseCase;
@@ -72,6 +71,6 @@ describe('AnalyzeResumeUseCase', () => {
         // Assuming validation happens inside or before. 
         // The current implementation checks for resumeFile and jobDescription
         // But request DTO might not be fully validated yet.
-        await expect(useCase.execute({ ...request, resumeFile: null } as any)).rejects.toThrow();
+        await expect(useCase.execute({ ...request, resumeFile: null as unknown as Buffer })).rejects.toThrow();
     });
 });

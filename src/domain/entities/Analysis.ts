@@ -89,41 +89,52 @@ export class Analysis {
   get overall(): OverallAnalysis { return this._overall; }
   get createdAt(): Date { return this._createdAt; }
 
-  static fromJSON(data: any): Analysis {
-    // Helper to Convert raw score (number or object) to Score entity
-    const toScore = (s: any) => new Score(typeof s === 'number' ? s : s._value || s.value || 0);
+  /**
+   * Deserializes JSON data into an Analysis entity using Zod validation.
+   * @param data - Unknown data structure from JSON.parse()
+   * @returns A fully typed Analysis instance.
+   * @throws ZodError if validation fails.
+   */
+  static fromJSON(data: unknown): Analysis {
+    // Import schema dynamically to avoid circular dependencies
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { AnalysisJSONSchema } = require('../schemas/AnalysisSchema');
+    const parsed = AnalysisJSONSchema.parse(data);
+
+    // Helper to convert parsed number to Score entity
+    const toScore = (s: number) => new Score(s);
 
     return new Analysis(
-      data.id,
+      parsed.id,
       {
-        ...data.searchability,
-        score: toScore(data.searchability.score),
+        ...parsed.searchability,
+        score: toScore(parsed.searchability.score),
         jobTitleMatch: {
-           ...data.searchability.jobTitleMatch,
-           score: toScore(data.searchability.jobTitleMatch.score)
+           ...parsed.searchability.jobTitleMatch,
+           score: toScore(parsed.searchability.jobTitleMatch.score)
         }
       },
       {
-        ...data.hardSkills,
-        score: toScore(data.hardSkills.score),
+        ...parsed.hardSkills,
+        score: toScore(parsed.hardSkills.score),
         technicalProficiency: {
-            ...data.hardSkills.technicalProficiency,
-            score: toScore(data.hardSkills.technicalProficiency.score)
+            ...parsed.hardSkills.technicalProficiency,
+            score: toScore(parsed.hardSkills.technicalProficiency.score)
         }
       },
       {
-        ...data.softSkills,
-        score: toScore(data.softSkills.score)
+        ...parsed.softSkills,
+        score: toScore(parsed.softSkills.score)
       },
       {
-        ...data.recruiterTips,
-        score: toScore(data.recruiterTips.score)
+        ...parsed.recruiterTips,
+        score: toScore(parsed.recruiterTips.score)
       },
       {
-        ...data.overall,
-        totalScore: toScore(data.overall.totalScore)
+        ...parsed.overall,
+        totalScore: toScore(parsed.overall.totalScore)
       },
-      new Date(data.createdAt)
+      parsed.createdAt
     );
   }
 
