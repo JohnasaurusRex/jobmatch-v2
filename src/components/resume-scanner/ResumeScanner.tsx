@@ -61,6 +61,54 @@ export function ResumeScanner() {
     }
   };
 
+  const handlePoll = async (jobId: string) => {
+      let attempts = 0;
+      const maxAttempts = 60; // 2 minutes with 2s interval
+
+      const poll = async () => {
+          if (attempts >= maxAttempts) {
+              setError('Analysis timed out.');
+              setIsLoading(false);
+              return;
+          }
+
+          try {
+              const res = await fetch(`/api/status/${jobId}`);
+              if (!res.ok) {
+                  // If 404, job might not be in Redis yet (unlikely with await save)
+                  // or expired?
+                  // Retry anyway a few times?
+                  throw new Error("Status check failed");
+              }
+              
+              const data = await res.json();
+              
+              if (data.status === 'completed' && data.result) {
+                  // SUCCESS: Store in Zustand (persisted)
+                  setAnalysis(data.result);
+                  
+                  // Finish animation
+                  setScanStep(scanSteps.length - 1);
+                  await new Promise(r => setTimeout(r, 800));
+                  
+                  router.push('/dashboard');
+              } else if (data.status === 'failed') {
+                  throw new Error(data.error_message || 'Analysis failed');
+              } else {
+                  // Still processing
+                  attempts++;
+                  setTimeout(poll, 2000);
+              }
+          } catch (err) {
+              console.error(err);
+              setError(err instanceof Error ? err.message : "Polling error");
+              setIsLoading(false);
+          }
+      };
+
+      poll();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !jobDescription) {
@@ -77,7 +125,6 @@ export function ResumeScanner() {
     formData.append('jobDescription', jobDescription);
 
     try {
-        // Synchronous API call - waits for analysis to complete
         const res = await fetch('/api/analyze', {
             method: 'POST',
             body: formData
@@ -85,16 +132,15 @@ export function ResumeScanner() {
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.error || "Analysis failed");
+            throw new Error(err.error || "Upload failed");
         }
 
         const data = await res.json();
-        
-        // SUCCESS: Store in Zustand (persisted to localStorage)
-        setAnalysis(data);
-        
-        // Navigate to dashboard
-        router.push('/dashboard');
+        if (data.job_id) {
+            handlePoll(data.job_id);
+        } else {
+            throw new Error("No Job ID returned");
+        }
     } catch (err) {
         console.error(err);
         setError(err instanceof Error ? err.message : "An unexpected error occurred");

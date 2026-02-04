@@ -1,36 +1,32 @@
+// src/application/use-cases/GetJobStatusUseCase.ts
 import { IUseCase } from '../interfaces/IUseCase';
 import { JobStatusResponse } from '../dto/JobStatusResponse';
-import { IJobStatusService } from '../../domain/services/IJobStatusService';
-import { JobId } from '../../domain/value-objects/JobId';
 import { AnalysisResponse } from '../dto/AnalysisResponse';
+import { IJobRepository } from '../../domain/repositories/IJobRepository';
+import { JobId } from '../../domain/value-objects/JobId';
 
 export class GetJobStatusUseCase implements IUseCase<string, JobStatusResponse> {
-  constructor(
-    private readonly jobStatusService: IJobStatusService
-  ) {}
+  constructor(private readonly jobRepository: IJobRepository) {}
 
-  async execute(jobIdValue: string): Promise<JobStatusResponse> {
-    const jobId = new JobId(jobIdValue);
-    const job = await this.jobStatusService.getJobStatus(jobId);
+  async execute(id: string): Promise<JobStatusResponse> {
+    const job = await this.jobRepository.findById(new JobId(id));
 
     if (!job) {
       throw new Error('Job not found');
     }
 
-    let analysisResult: AnalysisResponse | undefined;
-
-    // Get analysis directly from job (stored in-memory)
-    if (job.isCompleted() && job.analysisResult) {
-      analysisResult = AnalysisResponse.fromDomain(job.analysisResult);
+    let analysisResponse: AnalysisResponse | undefined;
+    if (job.analysisResult) {
+      analysisResponse = AnalysisResponse.fromDomain(job.analysisResult);
     }
 
     return new JobStatusResponse(
-      job.id.value,
+      job.id.toString(),
       job.status,
       job.createdAt,
       job.completedAt,
       job.errorMessage,
-      analysisResult
+      analysisResponse
     );
   }
 }

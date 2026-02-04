@@ -1,91 +1,83 @@
-// src/application/use-cases/AnalyzeResumeUseCase.ts
 import { IUseCase } from '../interfaces/IUseCase';
 import { AnalyzeResumeRequest } from '../dto/AnalyzeResumeRequest';
-import { AnalysisResponse } from '../dto/AnalysisResponse';
+import { JobStatusResponse } from '../dto/JobStatusResponse';
 import { Resume } from '../../domain/entities/Resume';
 import { JobDescription } from '../../domain/entities/JobDescription';
+import { Job, JobStatus } from '../../domain/entities/Job';
+import { JobId } from '../../domain/value-objects/JobId';
 import { IAnalysisService } from '../../domain/services/IAnalysisService';
+import { IJobRepository } from '../../domain/repositories/IJobRepository';
 import { IPdfProcessor } from '../../domain/repositories/IPdfProcessor';
 import { v4 as uuidv4 } from 'uuid';
 
-/**
- * Synchronous use case for analyzing a resume.
- * Waits for the OpenAI analysis to complete and returns the result directly.
- * This is optimized for serverless environments like Vercel.
- */
-export class AnalyzeResumeUseCase implements IUseCase<AnalyzeResumeRequest, AnalysisResponse> {
+export class AnalyzeResumeUseCase implements IUseCase<AnalyzeResumeRequest, JobStatusResponse> {
   constructor(
     private readonly analysisService: IAnalysisService,
+    private readonly jobRepository: IJobRepository,
     private readonly pdfProcessor: IPdfProcessor
   ) {}
 
-  async execute(request: AnalyzeResumeRequest): Promise<AnalysisResponse> {
-    // Validation
+  async execute(request: AnalyzeResumeRequest): Promise<JobStatusResponse> {
     if (!request.resumeFile || !request.jobDescription) {
       throw new Error('Resume file and job description are required');
     }
 
-    console.log('File validation - Size:', request.resumeFile.length, 'bytes');
+    const job = this.createInitialJob();
+    await this.jobRepository.save(job);
 
-    // Validate file size (5MB limit)
-    const maxFileSize = 5 * 1024 * 1024;
-    if (request.resumeFile.length > maxFileSize) {
-      throw new Error('Resume file too large');
-    }
+    this.runBackgroundAnalysis(job, request).catch(error => {
+        this.handleAnalysisError(job, error);
+    });
 
-    // Basic PDF validation
-    if (!this.isBasicPdfValid(request.resumeFile)) {
-      throw new Error('File is not a valid PDF format');
-    }
-
-    // Extract text from PDF
-    console.log('Extracting text from PDF...');
-    const resumeText = await this.pdfProcessor.extractText(request.resumeFile);
-    console.log('Text extracted, length:', resumeText.length);
-    
-    if (!resumeText.trim()) {
-      throw new Error('Empty resume text extracted');
-    }
-
-    // Create domain entities
-    const resume = new Resume(
-      uuidv4(),
-      resumeText,
-      request.fileName || 'resume.pdf',
-      new Date()
+    return new JobStatusResponse(
+      job.id.toString(),
+      job.status,
+      job.createdAt
     );
-
-    const jobDescription = new JobDescription(request.jobDescription);
-
-    // Validate entities
-    if (resume.isEmpty() || !resume.hasValidContent()) {
-      throw new Error('Invalid resume content');
-    }
-
-    if (jobDescription.isEmpty() || !jobDescription.hasValidContent()) {
-      throw new Error('Invalid job description content');
-    }
-
-    // Perform AI analysis (synchronous - waits for completion)
-    console.log('Starting AI analysis...');
-    const analysis = await this.analysisService.analyzeResume(resume, jobDescription);
-    console.log('AI analysis completed');
-
-    // Return the analysis result directly
-    return AnalysisResponse.fromDomain(analysis);
   }
 
-  private isBasicPdfValid(file: Buffer): boolean {
-    try {
-      if (!Buffer.isBuffer(file) || file.length === 0) {
-        return false;
-      }
+  private createInitialJob(): Job {
+    return new Job(
+        new JobId(uuidv4()),
+        JobStatus.PROCESSING,
+        new Date()
+    );
+  }
 
-      // Check for PDF magic number
-      const pdfSignature = file.subarray(0, 4).toString('ascii');
-      return pdfSignature.startsWith('%PDF');
-    } catch {
-      return false;
-    }
+  private async runBackgroundAnalysis(job: Job, request: AnalyzeResumeRequest): Promise<void> {
+      console.log(`Starting analysis for job: ${job.id.toString()}`);
+      
+      try {
+        const resumeText = await this.pdfProcessor.extractText(request.resumeFile);
+        
+        const resume = new Resume(
+            uuidv4(),
+            resumeText,
+            request.fileName || 'resume.pdf',
+            new Date()
+        );
+
+        const jobDescription = new JobDescription(request.jobDescription);
+        const analysis = await this.analysisService.analyzeResume(resume, jobDescription);
+        
+        job.markAsCompleted(analysis);
+        await this.jobRepository.save(job);
+        
+        console.log(`Job ${job.id.toString()} completed`);
+      } catch (error) {
+        // Re-throw to be caught by the caller (.catch block in execute)
+        throw error;
+      }
+  }
+
+  private handleAnalysisError(job: Job, error: unknown): void {
+      console.error(`Analysis failed for job ${job.id.toString()}:`, error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      
+      job.markAsError(message);
+      
+      this.jobRepository.save(job).catch(saveError => {
+          console.error('Failed to save error status:', saveError);
+      });
   }
 }

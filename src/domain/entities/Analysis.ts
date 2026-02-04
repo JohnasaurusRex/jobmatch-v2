@@ -89,6 +89,44 @@ export class Analysis {
   get overall(): OverallAnalysis { return this._overall; }
   get createdAt(): Date { return this._createdAt; }
 
+  static fromJSON(data: any): Analysis {
+    // Helper to Convert raw score (number or object) to Score entity
+    const toScore = (s: any) => new Score(typeof s === 'number' ? s : s._value || s.value || 0);
+
+    return new Analysis(
+      data.id,
+      {
+        ...data.searchability,
+        score: toScore(data.searchability.score),
+        jobTitleMatch: {
+           ...data.searchability.jobTitleMatch,
+           score: toScore(data.searchability.jobTitleMatch.score)
+        }
+      },
+      {
+        ...data.hardSkills,
+        score: toScore(data.hardSkills.score),
+        technicalProficiency: {
+            ...data.hardSkills.technicalProficiency,
+            score: toScore(data.hardSkills.technicalProficiency.score)
+        }
+      },
+      {
+        ...data.softSkills,
+        score: toScore(data.softSkills.score)
+      },
+      {
+        ...data.recruiterTips,
+        score: toScore(data.recruiterTips.score)
+      },
+      {
+        ...data.overall,
+        totalScore: toScore(data.overall.totalScore)
+      },
+      new Date(data.createdAt)
+    );
+  }
+
   toJSON() {
     return {
       id: this._id,
